@@ -103,10 +103,10 @@ function handleClipboardText(text) {
 
   lastClipboardText = text;
 
-  // Send ONLY to the active tab's content script
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-    if (tabs && tabs[0]) {
-      chrome.tabs.sendMessage(tabs[0].id, {
+  // Broadcast to all tabs. The content script will filter non-texthooker pages out.
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, {
         type: 'clipboard-inserter-text',
         text: text
       }).catch(() => {});
