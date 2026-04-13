@@ -26,16 +26,23 @@
       return;
     }
 
-    // Regular page — insert directly into body
+    const legacyContainer = document.getElementById('textlog') || document.getElementById('text');
+    const hasMetaTag = document.querySelector('meta[name="clipboard-inserter"]');
+
+    if (!legacyContainer && !hasMetaTag) {
+      // Not a recognized texthooker page. Do nothing.
+      return;
+    }
+
+    // Regular page identified as texthooker — insert directly
     const p = document.createElement('p');
     p.className = 'clipboard-inserter-text';
     p.textContent = text;
 
-    const target = document.getElementById('textlog')
-      || document.getElementById('text')
-      || document.body;
-
+    const target = legacyContainer || document.body;
     target.appendChild(p);
-    document.documentElement.scrollTop = document.documentElement.scrollHeight;
+
+    const scrollTarget = legacyContainer || document.documentElement;
+    scrollTarget.scrollTop = scrollTarget.scrollHeight;
   }
 })();
