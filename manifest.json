@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Clipboard Inserter",
-  "version": "1.0.1",
-  "description": "Monitors clipboard for changes and inserts new text into the active page. Click the icon to toggle. For Japanese text hooking with Textractor, Yomitan, and Anki.",
+  "version": "1.0.2",
+  "description": "Monitors clipboard for changes and inserts new text into the active page. For Japanese text hooking.",
   "permissions": [
     "clipboardRead",
     "offscreen",
@@ -17,6 +17,12 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["texthooker.html", "offscreen.html", "template-renderer.html"],
+      "matches": ["<all_urls>"]
     }
   ],
   "action": {

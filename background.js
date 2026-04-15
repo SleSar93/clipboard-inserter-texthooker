@@ -1,52 +1,46 @@
 // Clipboard Inserter - Background Service Worker
-// Click the extension icon to toggle monitoring ON/OFF.
-// OFF by default. Sends clipboard text to the ACTIVE tab only.
-
 let isEnabled = false;
 let lastClipboardText = '';
 let creatingOffscreen = null;
 
-// ──────────────────────────────────────────────
-// Icon Click = Toggle ON/OFF
-// ──────────────────────────────────────────────
+// ── Persistence: Load state on startup ──
+chrome.storage.local.get(['enabled'], (result) => {
+  isEnabled = !!result.enabled;
+  updateBadge();
+  if (isEnabled) {
+    startMonitoring();
+  }
+});
 
+// ── Icon Click = Toggle ON/OFF ──
 chrome.action.onClicked.addListener(async () => {
   isEnabled = !isEnabled;
-  chrome.storage.local.set({ enabled: isEnabled });
+  await chrome.storage.local.set({ enabled: isEnabled });
 
   if (isEnabled) {
     await startMonitoring();
   } else {
     stopMonitoring();
   }
-
   updateBadge();
 });
 
-// ──────────────────────────────────────────────
-// Badge & Title
-// ──────────────────────────────────────────────
-
 function updateBadge() {
-  if (isEnabled) {
-    chrome.action.setBadgeText({ text: 'ON' });
-    chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
-    chrome.action.setTitle({ title: 'Clipboard Inserter (ON) - Click to toggle' });
-  } else {
-    chrome.action.setBadgeText({ text: '' });
-    chrome.action.setTitle({ title: 'Clipboard Inserter (OFF) - Click to toggle' });
-  }
+  const text = isEnabled ? 'ON' : '';
+  const color = isEnabled ? '#22c55e' : '';
+  const title = `Clipboard Inserter (${isEnabled ? 'ON' : 'OFF'}) - Click to toggle`;
+
+  chrome.action.setBadgeText({ text });
+  if (isEnabled) chrome.action.setBadgeBackgroundColor({ color });
+  chrome.action.setTitle({ title });
 }
 
-// ──────────────────────────────────────────────
-// Context Menu (right-click the icon)
-// ──────────────────────────────────────────────
-
+// ── Context Menu ──
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'open-texthooker',
     title: 'Open Texthooker Page',
-    contexts: ['action']   // only in the extension icon right-click menu
+    contexts: ['action']
   });
 });
 
@@ -56,22 +50,16 @@ chrome.contextMenus.onClicked.addListener((info) => {
   }
 });
 
-// ──────────────────────────────────────────────
-// Offscreen Document Management
-// ──────────────────────────────────────────────
-
+// ── Offscreen Document Management ──
 async function ensureOffscreenDocument() {
   const offscreenUrl = chrome.runtime.getURL('offscreen.html');
-
   try {
     const contexts = await chrome.runtime.getContexts({
       contextTypes: ['OFFSCREEN_DOCUMENT'],
       documentUrls: [offscreenUrl]
     });
     if (contexts.length > 0) return;
-  } catch (e) {
-    // getContexts may not be available in older versions
-  }
+  } catch (e) {}
 
   if (creatingOffscreen) {
     await creatingOffscreen;
@@ -82,28 +70,20 @@ async function ensureOffscreenDocument() {
     creatingOffscreen = chrome.offscreen.createDocument({
       url: 'offscreen.html',
       reasons: ['CLIPBOARD'],
-      justification: 'Monitor clipboard for new text to insert into the active tab'
+      justification: 'Monitor clipboard for text insertion'
     });
     await creatingOffscreen;
   } catch (e) {
-    console.log('Offscreen document creation:', e.message);
+    console.error('Offscreen creation error:', e.message);
   } finally {
     creatingOffscreen = null;
   }
 }
 
-// ──────────────────────────────────────────────
-// Clipboard Text Handling
-// ──────────────────────────────────────────────
-
 function handleClipboardText(text) {
-  if (!isEnabled) return;
-  if (!text || text.trim() === '') return;
-  if (text === lastClipboardText) return;
-
+  if (!isEnabled || !text || text.trim() === '' || text === lastClipboardText) return;
   lastClipboardText = text;
 
-  // Broadcast to all tabs. The content script will filter non-texthooker pages out.
   chrome.tabs.query({}, (tabs) => {
     for (const tab of tabs) {
       chrome.tabs.sendMessage(tab.id, {
@@ -114,31 +94,20 @@ function handleClipboardText(text) {
   });
 }
 
-
-// ──────────────────────────────────────────────
-// Message Handling
-// ──────────────────────────────────────────────
-
+// ── Message Handling ──
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'clipboard-data':
-      // Received from offscreen document
       handleClipboardText(message.text);
       break;
-
     case 'get-status':
       sendResponse({ enabled: isEnabled });
       return true;
   }
 });
 
-// ──────────────────────────────────────────────
-// Monitoring Control
-// ──────────────────────────────────────────────
-
 async function startMonitoring() {
   await ensureOffscreenDocument();
-  // Small delay to let the offscreen document initialize
   setTimeout(() => {
     chrome.runtime.sendMessage({ type: 'start-monitoring' }).catch(() => {});
   }, 200);
@@ -147,20 +116,3 @@ async function startMonitoring() {
 function stopMonitoring() {
   chrome.runtime.sendMessage({ type: 'stop-monitoring' }).catch(() => {});
 }
-
-// ──────────────────────────────────────────────
-// Initialization — always start OFF
-// ──────────────────────────────────────────────
-
-function initialize() {
-  isEnabled = false;
-  chrome.storage.local.set({ enabled: false });
-  updateBadge();
-}
-
-chrome.runtime.onStartup.addListener(() => {
-  initialize();
-});
-
-// Initialize immediately
-initialize();
