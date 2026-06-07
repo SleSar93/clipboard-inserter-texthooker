@@ -84,6 +84,8 @@ function handleClipboardText(text) {
   if (!isEnabled || !text || text.trim() === '' || text === lastClipboardText) return;
   lastClipboardText = text;
 
+  // Send to all tabs — the content script only acts on pages
+  // with #clipboard-inserter-container (the texthooker page)
   chrome.tabs.query({}, (tabs) => {
     for (const tab of tabs) {
       chrome.tabs.sendMessage(tab.id, {

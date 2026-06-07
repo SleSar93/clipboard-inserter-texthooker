@@ -73,6 +73,15 @@
     }
   });
 
+  // Also listen via runtime messages (works if opened as chrome-extension:// URL)
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === 'clipboard-inserter-text') {
+        addTextEntry(message.text);
+      }
+    });
+  }
+
   // ══════════════════════════════════════════════
   // Settings
   // ══════════════════════════════════════════════
